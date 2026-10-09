@@ -4,7 +4,7 @@ import { CategoriesBoard } from "@/components/painel/categories-board";
 import { PainelShell } from "@/components/painel/painel-shell";
 
 export const metadata: Metadata = {
-  title: "Categorias | Marcai",
+  title: "Subcategorias | Marcai",
 };
 
 export default function CategoriasPage() {

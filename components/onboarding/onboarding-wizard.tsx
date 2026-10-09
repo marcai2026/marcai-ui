@@ -14,16 +14,18 @@ const steps = [
   { label: "Horário", hint: "Quando a casa abre" },
 ];
 
-const businessSegments = [
-  { id: "estetica", label: "Estética e beleza", detail: "Clínica, studio e procedimentos" },
-  { id: "barbearia", label: "Barbearia", detail: "Corte, barba e cuidados" },
-  { id: "salao", label: "Salão de beleza", detail: "Cabelo, unhas e maquiagem" },
-  { id: "pet", label: "Pet", detail: "Banho, tosa e consulta" },
-  { id: "saude", label: "Saúde", detail: "Consultas e clínicas" },
-  { id: "automotivo", label: "Automotivo", detail: "Oficina e estética automotiva" },
-  { id: "bem-estar", label: "Bem-estar", detail: "Massagem, spa e terapias" },
-  { id: "educacao", label: "Educação", detail: "Aulas e horários marcados" },
-];
+type BusinessCategory = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+
+type OnboardingResponse = {
+  accessToken: string;
+  company: {
+    companyId: string;
+  };
+};
 
 const teamSizes = [
   { id: "1", label: "Só eu", detail: "Uma agenda", marks: 1 },
@@ -81,6 +83,8 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [companyName, setCompanyName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<BusinessCategory[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [segment, setSegment] = useState<string | null>(null);
   const [segmentError, setSegmentError] = useState<string | null>(null);
   const [teamSize, setTeamSize] = useState("2-5");
@@ -88,6 +92,28 @@ export function OnboardingWizard() {
   const [hoursError, setHoursError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api<BusinessCategory[]>("/api/business-categories")
+      .then((rows) => {
+        if (!cancelled) {
+          setCategories(rows);
+        }
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setCategoriesError(
+            caught instanceof ApiError ? caught.message : "Não foi possível carregar os ramos.",
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!ready) {
@@ -141,7 +167,10 @@ export function OnboardingWizard() {
       return;
     }
 
-    if (!session) {
+    if (!session || !segment) {
+      if (!segment) {
+        setSegmentError("Escolha a categoria do negócio.");
+      }
       return;
     }
 
@@ -149,49 +178,34 @@ export function OnboardingWizard() {
     setPending(true);
 
     try {
-      let accessToken = session.accessToken;
-      let companyId = session.companyId;
-
-      if (!companyId) {
-        try {
-          const created = await api<{ accessToken: string; companyId: string }>("/api/onboarding/onboarding", {
-            method: "POST",
-            body: JSON.stringify({ companyName: companyName.trim() }),
-          });
-
-          accessToken = created.accessToken;
-          companyId = readCompanyId(created.accessToken) ?? created.companyId;
-        } catch (caught) {
-          if (!(caught instanceof ApiError) || caught.status !== 409) {
-            throw caught;
-          }
-
-          const companies = await api<Array<{ id: string }>>("/api/companies");
-          companyId = companies[0]?.id ?? null;
-
-          if (!companyId) {
-            throw caught;
-          }
-        }
-      }
-
-      const auth = { Authorization: `Bearer ${accessToken}` };
-
-      await api(`/api/companies/${companyId}/business-hours`, {
-        method: "PUT",
-        headers: auth,
+      const created = await api<OnboardingResponse>("/api/onboarding/onboarding", {
+        method: "POST",
         body: JSON.stringify({
-          hours: openDays.map((day) => ({
-            dayOfWeek: day.dayOfWeek,
-            openTime: day.openTime,
-            closeTime: day.closeTime,
-          })),
+          companyName: companyName.trim(),
+          businessCategoryId: segment,
+          teamSize,
+          businessHours: hours.map((day) =>
+            day.open
+              ? {
+                  dayOfWeek: day.dayOfWeek,
+                  isOpen: true,
+                  openTime: day.openTime,
+                  closeTime: day.closeTime,
+                }
+              : {
+                  dayOfWeek: day.dayOfWeek,
+                  isOpen: false,
+                  openTime: "00:00",
+                },
+          ),
         }),
       });
 
+      const companyId = readCompanyId(created.accessToken) ?? created.company.companyId;
+
       saveSession(
         {
-          accessToken,
+          accessToken: created.accessToken,
           user: session.user,
           companyId,
         },
@@ -317,8 +331,11 @@ export function OnboardingWizard() {
                 <p className="mt-2 max-w-lg text-sm leading-6 text-[#C8C8D0]">
                   Pet, barbearia, estética e os outros ramos do sistema. As categorias de serviço entram depois.
                 </p>
+                {categories.length === 0 && !categoriesError ? (
+                  <p className="mt-8 text-sm text-[#C8C8D0]">Carregando ramos...</p>
+                ) : null}
                 <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                  {businessSegments.map((item) => {
+                  {categories.map((item) => {
                     const selected = segment === item.id;
                     return (
                       <button
@@ -334,7 +351,7 @@ export function OnboardingWizard() {
                         }}
                       >
                         <span className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-semibold text-white">{item.label}</span>
+                          <span className="text-sm font-semibold text-white">{item.name}</span>
                           <span
                             className={`grid size-6 place-items-center rounded-full border text-xs ${
                               selected
@@ -345,11 +362,14 @@ export function OnboardingWizard() {
                             ✓
                           </span>
                         </span>
-                        <span className="mt-1 block text-sm text-[#C8C8D0]">{item.detail}</span>
+                        {item.description ? (
+                          <span className="mt-1 block text-sm text-[#C8C8D0]">{item.description}</span>
+                        ) : null}
                       </button>
                     );
                   })}
                 </div>
+                {categoriesError ? <p className="mt-3 text-sm text-[#ff8d90]">{categoriesError}</p> : null}
                 {segmentError ? <p className="mt-3 text-sm text-[#ff8d90]">{segmentError}</p> : null}
               </div>
             ) : null}

@@ -17,13 +17,16 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
 
   try {
+    const headers = new Headers(init?.headers);
+    headers.set("Content-Type", "application/json");
+    const authorization = authHeader().Authorization;
+    if (authorization) {
+      headers.set("Authorization", authorization);
+    }
+
     response = await fetch(`${apiBase()}${path}`, {
       ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader(),
-        ...init?.headers,
-      },
+      headers,
     });
   } catch {
     throw new ApiError(0, "Não foi possível conectar à API. Verifique se o servidor está no ar.");
@@ -43,7 +46,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-function authHeader() {
+function authHeader(): { Authorization?: string } {
   if (typeof window === "undefined") {
     return {};
   }

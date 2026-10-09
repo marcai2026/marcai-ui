@@ -9,13 +9,14 @@ import { clearSession, getSessionSnapshot, subscribeSession } from "@/lib/sessio
 
 const nav = [
   { label: "Painel", icon: "grid", href: "/painel" },
-  { label: "Agenda", icon: "calendar" },
-  { label: "Clientes", icon: "users" },
-  { label: "Categorias", icon: "tag", href: "/painel/categorias" },
-  { label: "Serviços", icon: "scissors" },
-  { label: "Profissionais", icon: "user" },
-  { label: "Horários", icon: "clock" },
-  { label: "Equipe", icon: "team" },
+  { label: "Agenda", icon: "calendar", href: "/painel/agenda" },
+  { label: "Clientes", icon: "users", href: "/painel/clientes" },
+  { label: "Subcategorias", icon: "tag", href: "/painel/categorias" },
+  { label: "Serviços", icon: "scissors", href: "/painel/servicos" },
+  { label: "Profissionais", icon: "user", href: "/painel/profissionais" },
+  { label: "Horários", icon: "clock", href: "/painel/horarios" },
+  { label: "Equipe", icon: "team", href: "/painel/equipe" },
+  { label: "Empresa", icon: "store", href: "/painel/empresa" },
 ] as const;
 
 function subscribeReady() {
@@ -62,28 +63,18 @@ export function PainelShell({ children }: { children: ReactNode }) {
             <MarcaiLogo variant="light" className="h-8 w-auto" />
           </Link>
           <nav className="mt-6 flex flex-1 flex-col gap-1" aria-label="Painel">
-            {nav.map((item) =>
-              "href" in item ? (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold ${
-                    pathname === item.href ? "bg-white/8 text-white" : "text-[#A7A7B2] hover:bg-white/6 hover:text-white"
-                  }`}
-                >
-                  <NavIcon name={item.icon} />
-                  {item.label}
-                </Link>
-              ) : (
-                <span
-                  key={item.label}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#A7A7B2]"
-                >
-                  <NavIcon name={item.icon} />
-                  {item.label}
-                </span>
-              ),
-            )}
+            {nav.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold ${
+                  isCurrent(pathname, item.href) ? "bg-white/8 text-white" : "text-[#A7A7B2] hover:bg-white/6 hover:text-white"
+                }`}
+              >
+                <NavIcon name={item.icon} />
+                {item.label}
+              </Link>
+            ))}
           </nav>
           <div className="rounded-2xl border border-white/8 bg-[#141418] p-4">
             <p className="text-sm font-semibold text-white">Agenda do salão</p>
@@ -110,19 +101,17 @@ export function PainelShell({ children }: { children: ReactNode }) {
                 <MarcaiLogo variant="light" className="h-7 w-auto" />
               </Link>
               <nav className="flex gap-2 overflow-auto md:hidden" aria-label="Painel">
-                {nav.flatMap((item) =>
-                  "href" in item ? (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={`shrink-0 rounded-xl px-3 py-2 text-sm font-semibold ${
-                        pathname === item.href ? "bg-white/8 text-white" : "text-[#A7A7B2]"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  ) : [],
-                )}
+                {nav.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`shrink-0 rounded-xl px-3 py-2 text-sm font-semibold ${
+                      isCurrent(pathname, item.href) ? "bg-white/8 text-white" : "text-[#A7A7B2]"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </nav>
             </div>
             <div className="flex items-center gap-3">
@@ -152,6 +141,14 @@ export function PainelShell({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
+}
+
+function isCurrent(pathname: string, href: string) {
+  if (href === "/painel") {
+    return pathname === "/painel";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function NavIcon({ name }: { name: (typeof nav)[number]["icon"] }) {
@@ -212,6 +209,16 @@ function NavIcon({ name }: { name: (typeof nav)[number]["icon"] }) {
       <svg {...common}>
         <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.75" />
         <path d="M12 8.5V12l2.5 2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === "store") {
+    return (
+      <svg {...common}>
+        <path d="M4 10.5 6 4.5h12L20 10.5" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" />
+        <path d="M5 10.5h14V19a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8.5Z" stroke="currentColor" strokeWidth="1.75" />
+        <path d="M10 20v-5h4v5" stroke="currentColor" strokeWidth="1.75" />
       </svg>
     );
   }

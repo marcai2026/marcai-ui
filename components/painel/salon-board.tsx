@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const stats = [
   { label: "Agendamentos hoje", value: "18", hint: "+3 em relação a ontem", detail: "Corte, cor e barba" },
   { label: "Confirmados", value: "14", hint: "4 ainda aguardam", detail: "Clientes com horário marcado" },
@@ -23,9 +25,9 @@ const team = [
 ];
 
 const actions = [
-  { title: "Novo horário", detail: "Encaixar um cliente na agenda de hoje" },
-  { title: "Novo cliente", detail: "Guardar o contato para o próximo retorno" },
-  { title: "Bloquear horário", detail: "Almoço, folga ou cadeira em manutenção" },
+  { title: "Novo horário", detail: "Encaixar um cliente na agenda de hoje", href: "/painel/agenda/novo" },
+  { title: "Novo cliente", detail: "Guardar o contato para o próximo retorno", href: "/painel/clientes/novo" },
+  { title: "Bloquear horário", detail: "Almoço, folga ou cadeira em manutenção", href: "/painel/horarios" },
 ];
 
 function points(values: number[]) {
@@ -104,12 +106,22 @@ export function SalonBoard({ firstName }: { firstName: string }) {
           <h2 className="text-base font-semibold text-white">Ações rápidas</h2>
           <p className="mt-1 text-sm text-[#A7A7B2]">O que a recepção faz o tempo todo.</p>
           <ul className="mt-4 space-y-2">
-            {actions.map((action) => (
-              <li key={action.title} className="rounded-xl border border-white/8 bg-[#101014] px-3.5 py-3">
-                <p className="text-sm font-semibold text-white">{action.title}</p>
-                <p className="mt-0.5 text-xs leading-5 text-[#A7A7B2]">{action.detail}</p>
-              </li>
-            ))}
+            {actions.map((action) => {
+              const body = (
+                <>
+                  <p className="text-sm font-semibold text-white">{action.title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-[#A7A7B2]">{action.detail}</p>
+                </>
+              );
+
+              return (
+                <li key={action.title}>
+                  <Link href={action.href} className="block rounded-xl border border-white/8 bg-[#101014] px-3.5 py-3 hover:border-accent/40">
+                    {body}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </article>
       </section>
