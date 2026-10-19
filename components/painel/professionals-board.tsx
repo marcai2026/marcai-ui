@@ -18,7 +18,8 @@ export function ProfessionalsBoard() {
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => null);
   const companyId = session?.companyId ?? null;
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [loading, setLoading] = useState(Boolean(companyId));
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
+  const loading = Boolean(companyId) && loadedCompanyId !== companyId;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +28,6 @@ export function ProfessionalsBoard() {
     }
 
     let active = true;
-    setLoading(true);
     api<Professional[]>(`/api/companies/${companyId}/professionals`)
       .then((result) => {
         if (!active) {
@@ -43,7 +43,7 @@ export function ProfessionalsBoard() {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setLoadedCompanyId(companyId);
         }
       });
 

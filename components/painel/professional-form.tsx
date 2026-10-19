@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { ApiError, api } from "@/lib/api";
 import { firstFieldErrors } from "@/lib/auth-schemas";
+import { formatPriceInput, formatStoredPrice, maxPriceCents, priceToApi } from "@/lib/money";
 import { getSessionSnapshot, subscribeSession } from "@/lib/session";
 
 const professionalSchema = z.object({
@@ -27,42 +28,9 @@ const professionalSchema = z.object({
 type FieldName = "name" | "phone" | "bio" | "photoUrl";
 
 const maxDurationMinutes = 480;
-const maxPriceCents = 9_999_999;
 
 function formatDuration(value: string) {
   return value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
-}
-
-function formatMoney(cents: number) {
-  return (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatPriceInput(value: string) {
-  const digits = value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 7);
-  if (digits === "") {
-    return "";
-  }
-  return formatMoney(Math.min(Number(digits), maxPriceCents));
-}
-
-function formatStoredPrice(value: string) {
-  const trimmed = value.trim();
-  if (trimmed === "") {
-    return "";
-  }
-  const amount = Number(trimmed.replace(",", "."));
-  if (!Number.isFinite(amount) || amount < 0) {
-    return "";
-  }
-  return formatMoney(Math.min(Math.round(amount * 100), maxPriceCents));
-}
-
-function priceToApi(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits === "") {
-    return "";
-  }
-  return (Number(digits) / 100).toFixed(2);
 }
 
 type CatalogService = {
@@ -336,7 +304,7 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
       await api(`/api/companies/${companyId}/professionals/${saved.id}/hours`, {
         method: "PUT",
         body: JSON.stringify({
-          hours: hours.flatMap((row) => {
+          hours: hours.flatMap((row): { weekday: number; isUnavailable: boolean; startsAt: string | null; endsAt: string | null }[] => {
             if (!row.open) {
               return [{ weekday: row.weekday, isUnavailable: true, startsAt: null, endsAt: null }];
             }

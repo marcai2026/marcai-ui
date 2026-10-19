@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/session";
+import { clearSession, getSession } from "@/lib/session";
 
 export class ApiError extends Error {
   status: number;
@@ -35,6 +35,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const data = (await response.json().catch(() => null)) as { message?: string } | null;
 
   if (!response.ok) {
+    if (response.status === 401 && isExpiredSession(data?.message)) {
+      endSession();
+    }
+
     const fallback =
       response.status >= 500
         ? "Não foi possível conectar à API. Verifique se o servidor está no ar."
@@ -44,6 +48,26 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return data as T;
+}
+
+function isExpiredSession(message: string | undefined) {
+  return (
+    message === "Token de autenticação inválido ou expirado" ||
+    message === "Usuário inválido ou inativo" ||
+    message === "Usuário não autenticado"
+  );
+}
+
+function endSession() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  clearSession();
+
+  if (window.location.pathname !== "/login") {
+    window.location.assign("/login");
+  }
 }
 
 function authHeader(): { Authorization?: string } {

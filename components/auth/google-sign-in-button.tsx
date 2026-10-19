@@ -16,8 +16,11 @@ export function GoogleSignInButton({ disabled = false, onCredential, onError }: 
   const hostRef = useRef<HTMLDivElement>(null);
   const onCredentialRef = useRef(onCredential);
   const onErrorRef = useRef(onError);
-  onCredentialRef.current = onCredential;
-  onErrorRef.current = onError;
+
+  useEffect(() => {
+    onCredentialRef.current = onCredential;
+    onErrorRef.current = onError;
+  }, [onCredential, onError]);
 
   useEffect(() => {
     if (!clientId || !hostRef.current) {

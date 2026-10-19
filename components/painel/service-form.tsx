@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { ApiError, api } from "@/lib/api";
 import { firstFieldErrors } from "@/lib/auth-schemas";
+import { formatPriceInput, formatStoredPrice, priceToApi } from "@/lib/money";
 import { getSessionSnapshot, subscribeSession } from "@/lib/session";
 
 const serviceSchema = z.object({
@@ -18,6 +19,7 @@ const serviceSchema = z.object({
     .max(100, "O nome pode ter no máximo 100 caracteres."),
   description: z.string().trim().max(500, "A descrição pode ter no máximo 500 caracteres."),
   categoryId: z.string().min(1, "Escolha o que a empresa atende."),
+  price: z.string().trim().refine((value) => priceMessage(value) === null, "Informe um valor entre R$ 0,01 e R$ 99.999,99."),
   defaultDurationMinutes: z
     .string()
     .trim()
@@ -26,6 +28,17 @@ const serviceSchema = z.object({
 });
 
 const maxDurationMinutes = 480;
+
+function priceMessage(value: string) {
+  const amount = Number(priceToApi(value));
+  if (!Number.isFinite(amount) || amount < 0.01) {
+    return "Informe o valor.";
+  }
+  if (amount > 99999.99) {
+    return "O valor pode ter no máximo R$ 99.999,99.";
+  }
+  return null;
+}
 
 function formatDuration(value: string) {
   return value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
@@ -47,7 +60,7 @@ function durationMessage(value: string) {
   return null;
 }
 
-type FieldName = "name" | "description" | "categoryId" | "defaultDurationMinutes";
+type FieldName = "name" | "description" | "categoryId" | "price" | "defaultDurationMinutes";
 
 type Category = {
   id: string;
@@ -60,6 +73,7 @@ type Service = {
   name: string;
   description: string | null;
   categoryId: string;
+  price: string;
   defaultDurationMinutes: number;
   isActive: boolean;
 };
@@ -71,13 +85,15 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [loading, setLoading] = useState(Boolean(serviceId));
+  const [loadedServiceId, setLoadedServiceId] = useState<string | null>(null);
+  const loading = Boolean(serviceId) && loadedServiceId !== serviceId;
 
   useEffect(() => {
     if (!companyId) {
@@ -109,7 +125,6 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
     }
 
     let active = true;
-    setLoading(true);
     api<Service>(`/api/companies/${companyId}/services/${serviceId}`)
       .then((service) => {
         if (!active) {
@@ -118,6 +133,7 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
         setName(service.name);
         setDescription(service.description ?? "");
         setCategoryId(service.categoryId);
+        setPrice(formatStoredPrice(service.price ?? ""));
         setDuration(String(service.defaultDurationMinutes));
         setError(null);
       })
@@ -128,7 +144,7 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setLoadedServiceId(serviceId);
         }
       });
 
@@ -145,6 +161,7 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
       name,
       description,
       categoryId,
+      price,
       defaultDurationMinutes: duration,
     });
     if (!parsed.success) {
@@ -164,6 +181,7 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
       name: parsed.data.name,
       description: parsed.data.description || null,
       categoryId: parsed.data.categoryId,
+      price: priceToApi(parsed.data.price),
       defaultDurationMinutes: Number(parsed.data.defaultDurationMinutes),
     };
 
@@ -272,22 +290,42 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
           ) : null}
         </label>
 
-        <Field
-          label="Duração padrão (minutos)"
-          value={duration}
-          error={fieldErrors.defaultDurationMinutes}
-          placeholder="45"
-          inputMode="numeric"
-          maxLength={3}
-          onChange={(value) => {
-            const next = formatDuration(value);
-            setDuration(next);
-            setFieldErrors((current) => ({
-              ...current,
-              defaultDurationMinutes: next ? (durationMessage(next) ?? undefined) : undefined,
-            }));
-          }}
-        />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Valor"
+            className="mt-0"
+            value={price}
+            error={fieldErrors.price}
+            placeholder="80,00"
+            inputMode="numeric"
+            maxLength={10}
+            onChange={(value) => {
+              const next = formatPriceInput(value);
+              setPrice(next);
+              setFieldErrors((current) => ({
+                ...current,
+                price: next ? (priceMessage(next) ?? undefined) : undefined,
+              }));
+            }}
+          />
+          <Field
+            label="Duração padrão (minutos)"
+            className="mt-0"
+            value={duration}
+            error={fieldErrors.defaultDurationMinutes}
+            placeholder="45"
+            inputMode="numeric"
+            maxLength={3}
+            onChange={(value) => {
+              const next = formatDuration(value);
+              setDuration(next);
+              setFieldErrors((current) => ({
+                ...current,
+                defaultDurationMinutes: next ? (durationMessage(next) ?? undefined) : undefined,
+              }));
+            }}
+          />
+        </div>
 
         {error ? <p className="mt-4 text-sm text-[#ff8d90]">{error}</p> : null}
 
@@ -323,6 +361,7 @@ function Field({
   placeholder,
   inputMode,
   maxLength,
+  className = "mt-4",
 }: {
   label: string;
   value: string;
@@ -331,9 +370,10 @@ function Field({
   placeholder?: string;
   inputMode?: "numeric" | "text";
   maxLength?: number;
+  className?: string;
 }) {
   return (
-    <label className="mt-4 block text-sm text-[#C8C8D0] first:mt-0">
+    <label className={`${className} block text-sm text-[#C8C8D0] first:mt-0`}>
       {label}
       <input
         value={value}

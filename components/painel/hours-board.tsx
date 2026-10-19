@@ -65,6 +65,7 @@ export function HoursBoard() {
   const [endsAt, setEndsAt] = useState("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(Boolean(companyId));
+  const [configured, setConfigured] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -84,6 +85,7 @@ export function HoursBoard() {
         if (!active) {
           return;
         }
+        setConfigured(hours.length > 0);
         if (hours.length > 0) {
           setDays((rows) =>
             rows.map((row) => {
@@ -148,6 +150,7 @@ export function HoursBoard() {
         }),
       });
       setSaved(true);
+      setConfigured(true);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Não foi possível salvar o expediente.");
     } finally {
@@ -205,6 +208,11 @@ export function HoursBoard() {
         <h1 className="text-2xl font-semibold tracking-tight text-white">Horários</h1>
         <p className="mt-1 text-sm text-[#B7B7C2]">Expediente da empresa e bloqueios de folga, almoço ou manutenção.</p>
       </div>
+      {!loading && !configured ? (
+        <p className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-white">
+          Esta empresa ainda não tem expediente. Marque os dias e salve para gravar o horário de funcionamento.
+        </p>
+      ) : null}
       {loading ? <p className="text-sm text-[#A7A7B2]">Carregando...</p> : null}
       {error ? <p className="text-sm text-[#ff8d90]">{error}</p> : null}
       {saved ? <p className="text-sm text-accent">Expediente salvo.</p> : null}

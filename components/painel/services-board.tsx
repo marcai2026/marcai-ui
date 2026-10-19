@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { ApiError, api } from "@/lib/api";
+import { formatBrl } from "@/lib/money";
 import { getSessionSnapshot, subscribeSession } from "@/lib/session";
 
 type Service = {
   id: string;
   name: string;
   description: string | null;
+  price: string;
   defaultDurationMinutes: number;
   category: { id: string; name: string } | null;
 };
@@ -21,7 +23,9 @@ export function ServicesBoard() {
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(Boolean(companyId));
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const requestKey = `${companyId ?? ""}:${appliedSearch}`;
+  const loading = Boolean(companyId) && loadedKey !== requestKey;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,7 +39,6 @@ export function ServicesBoard() {
       params.set("search", appliedSearch);
     }
 
-    setLoading(true);
     const query = params.size > 0 ? `?${params.toString()}` : "";
     api<Service[]>(`/api/companies/${companyId}/services${query}`)
       .then((result) => {
@@ -52,14 +55,14 @@ export function ServicesBoard() {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setLoadedKey(requestKey);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [appliedSearch, companyId]);
+  }, [appliedSearch, companyId, requestKey]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,7 +128,9 @@ export function ServicesBoard() {
                       {service.description ? ` · ${service.description}` : ""}
                     </p>
                   </div>
-                  <span className="text-xs text-[#8E8E99]">{service.defaultDurationMinutes} min</span>
+                  <span className="text-xs text-[#8E8E99]">
+                    {formatBrl(service.price)} · {service.defaultDurationMinutes} min
+                  </span>
                   <Link href={`/painel/servicos/${service.id}`} className="text-sm font-semibold text-accent hover:underline">
                     Editar
                   </Link>

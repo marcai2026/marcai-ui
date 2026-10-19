@@ -53,7 +53,9 @@ export function AgendaBoard() {
   const [clients, setClients] = useState<Record<string, string>>({});
   const [services, setServices] = useState<Record<string, string>>({});
   const [professionals, setProfessionals] = useState<Named[]>([]);
-  const [loading, setLoading] = useState(Boolean(companyId));
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const requestKey = `${companyId ?? ""}:${date}:${status}:${professionalId}`;
+  const loading = Boolean(companyId) && loadedKey !== requestKey;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,7 +102,6 @@ export function AgendaBoard() {
       params.set("professionalId", professionalId);
     }
 
-    setLoading(true);
     api<Appointment[]>(`/api/companies/${companyId}/appointments?${params.toString()}`)
       .then((rows) => {
         if (active) {
@@ -115,14 +116,14 @@ export function AgendaBoard() {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setLoadedKey(requestKey);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [companyId, date, professionalId, status]);
+  }, [companyId, date, professionalId, requestKey, status]);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">

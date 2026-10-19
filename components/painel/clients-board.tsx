@@ -33,7 +33,9 @@ export function ClientsBoard() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(Boolean(companyId));
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const requestKey = `${companyId ?? ""}:${appliedSearch}:${page}`;
+  const loading = Boolean(companyId) && loadedKey !== requestKey;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,6 @@ export function ClientsBoard() {
       params.set("search", appliedSearch);
     }
 
-    setLoading(true);
     api<CustomerList>(`/api/companies/${companyId}/customers?${params.toString()}`)
       .then((result) => {
         if (!active) {
@@ -65,14 +66,14 @@ export function ClientsBoard() {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setLoadedKey(requestKey);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [appliedSearch, companyId, page]);
+  }, [appliedSearch, companyId, page, requestKey]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

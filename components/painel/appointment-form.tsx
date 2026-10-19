@@ -36,7 +36,9 @@ export function AppointmentForm() {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [loadedSlotKey, setLoadedSlotKey] = useState<string | null>(null);
+  const slotKey = `${companyId ?? ""}:${serviceId}:${professionalId}:${date}`;
+  const slotsLoading = Boolean(companyId && serviceId && professionalId && date) && loadedSlotKey !== slotKey;
 
   useEffect(() => {
     if (!companyId) {
@@ -89,7 +91,6 @@ export function AppointmentForm() {
     }
 
     let active = true;
-    setSlotsLoading(true);
     const params = new URLSearchParams({ serviceId, professionalId, date });
     api<Slot[]>(`/api/companies/${companyId}/availability?${params.toString()}`)
       .then((rows) => {
@@ -107,14 +108,14 @@ export function AppointmentForm() {
       })
       .finally(() => {
         if (active) {
-          setSlotsLoading(false);
+          setLoadedSlotKey(slotKey);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [companyId, date, professionalId, serviceId]);
+  }, [companyId, date, professionalId, serviceId, slotKey]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

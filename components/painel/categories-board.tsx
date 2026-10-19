@@ -40,7 +40,8 @@ export function CategoriesBoard() {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [offerings, setOfferings] = useState<ServiceCategory[]>([]);
   const [serviceCount, setServiceCount] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(Boolean(companyId));
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null);
+  const loading = Boolean(companyId) && loadedCompanyId !== companyId;
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -50,7 +51,6 @@ export function CategoriesBoard() {
     }
 
     let active = true;
-    setLoading(true);
 
     Promise.all([
       api<Company>(`/api/companies/${companyId}`),
@@ -83,7 +83,7 @@ export function CategoriesBoard() {
       })
       .finally(() => {
         if (active) {
-          setLoading(false);
+          setLoadedCompanyId(companyId);
         }
       });
 
