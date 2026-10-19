@@ -78,7 +78,7 @@ type Service = {
   isActive: boolean;
 };
 
-export function ServiceForm({ serviceId }: { serviceId?: string }) {
+export function ServiceForm({ serviceId, subcategoryId }: { serviceId?: string; subcategoryId?: string }) {
   const router = useRouter();
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => null);
   const companyId = session?.companyId ?? null;
@@ -88,6 +88,7 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [appliedSubcategoryId, setAppliedSubcategoryId] = useState<string | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +119,14 @@ export function ServiceForm({ serviceId }: { serviceId?: string }) {
       active = false;
     };
   }, [companyId]);
+
+  if (!serviceId && subcategoryId && subcategoryId !== appliedSubcategoryId) {
+    const selected = categories.find((category) => category.businessSubcategoryId === subcategoryId);
+    if (selected) {
+      setAppliedSubcategoryId(subcategoryId);
+      setCategoryId(selected.id);
+    }
+  }
 
   useEffect(() => {
     if (!companyId || !serviceId) {

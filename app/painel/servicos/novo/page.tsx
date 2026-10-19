@@ -7,10 +7,16 @@ export const metadata: Metadata = {
   title: "Cadastrar serviço | Marcai",
 };
 
-export default function NovoServicoPage() {
+export default async function NovoServicoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ subcategoria?: string }>;
+}) {
+  const { subcategoria } = await searchParams;
+
   return (
     <PainelShell>
-      <ServiceForm />
+      <ServiceForm subcategoryId={subcategoria} />
     </PainelShell>
   );
 }

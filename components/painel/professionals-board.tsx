@@ -12,6 +12,7 @@ type Professional = {
   name: string;
   phone: string | null;
   bio: string | null;
+  photoUrl: string | null;
 };
 
 export function ProfessionalsBoard() {
@@ -87,9 +88,13 @@ export function ProfessionalsBoard() {
           <ul className="divide-y divide-white/8">
             {professionals.map((professional) => (
               <li key={professional.id} className="flex flex-wrap items-center gap-3 py-3 first:pt-1">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
-                  {initials(professional.name)}
-                </span>
+                {professional.photoUrl ? (
+                  <img src={professional.photoUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
+                    {initials(professional.name)}
+                  </span>
+                )}
                 <div className="min-w-40 flex-1">
                   <p className="text-sm font-semibold text-white">{professional.name}</p>
                   <p className="text-xs text-[#A7A7B2]">{professional.phone || professional.bio || "Sem telefone"}</p>

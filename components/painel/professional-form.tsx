@@ -7,7 +7,6 @@ import { z } from "zod";
 
 import { ApiError, api } from "@/lib/api";
 import { firstFieldErrors } from "@/lib/auth-schemas";
-import { formatPriceInput, formatStoredPrice, maxPriceCents, priceToApi } from "@/lib/money";
 import { getSessionSnapshot, subscribeSession } from "@/lib/session";
 
 const professionalSchema = z.object({
@@ -17,39 +16,81 @@ const professionalSchema = z.object({
     .min(1, "Informe o nome.")
     .min(2, "O nome precisa ter pelo menos 2 caracteres.")
     .max(100, "O nome pode ter no máximo 100 caracteres."),
-  phone: z.string().trim().max(20, "O telefone pode ter no máximo 20 caracteres."),
-  bio: z.string().trim().max(1000, "A bio pode ter no máximo 1000 caracteres."),
-  photoUrl: z
+  phone: z
     .string()
     .trim()
-    .refine((value) => value === "" || z.url().safeParse(value).success, "Informe um endereço de foto válido."),
+    .refine((value) => {
+      const digits = value.replace(/\D/g, "");
+      return digits.length === 0 || digits.length === 10 || digits.length === 11;
+    }, "Informe o DDD e o número, com 10 ou 11 dígitos."),
+  bio: z.string().trim().max(1000, "A bio pode ter no máximo 1000 caracteres."),
+  photoUrl: z.string().trim().superRefine((value, ctx) => {
+    const message = photoUrlMessage(value);
+    if (message) {
+      ctx.addIssue({ code: "custom", message });
+    }
+  }),
 });
 
 type FieldName = "name" | "phone" | "bio" | "photoUrl";
 
-const maxDurationMinutes = 480;
+function photoUrlMessage(value: string) {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return null;
+  }
 
-function formatDuration(value: string) {
-  return value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3);
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return "Informe um endereço de foto válido.";
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return "Informe um endereço de foto válido.";
+  }
+
+  if (!/\.(avif|gif|jpe?g|png|svg|webp)$/i.test(url.pathname)) {
+    return "Cole o link direto da imagem, não o da página.";
+  }
+
+  return null;
+}
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length === 0) {
+    return "";
+  }
+  if (digits.length < 3) {
+    return `(${digits}`;
+  }
+  if (digits.length < 7) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+  if (digits.length < 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
 type CatalogService = {
   id: string;
   name: string;
+  price: string;
   defaultDurationMinutes: number;
   category: { id: string; name: string } | null;
 };
 
 type AssignedService = {
   serviceId: string;
-  price: string;
-  durationMinutes: number;
 };
 
 type ServiceLink = {
   selected: boolean;
-  price: string;
-  duration: string;
 };
 
 type Shift = {
@@ -190,8 +231,6 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
                 service.id,
                 {
                   selected: Boolean(current),
-                  price: formatStoredPrice(current?.price ?? ""),
-                  duration: formatDuration(String(current?.durationMinutes ?? service.defaultDurationMinutes)),
                 },
               ];
             }),
@@ -200,7 +239,7 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
 
         if (profile) {
           setName(profile.name);
-          setPhone(profile.phone ?? "");
+          setPhone(formatPhone(profile.phone ?? ""));
           setBio(profile.bio ?? "");
           setPhotoUrl(profile.photoUrl ?? "");
         }
@@ -248,20 +287,6 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
     }
 
     const selected = catalog.filter((service) => links[service.id]?.selected);
-    for (const service of selected) {
-      const link = links[service.id];
-      const price = priceToApi(link.price);
-      const duration = Number(link.duration);
-      const priceAmount = Number(price);
-      if (!/^\d+\.\d{2}$/.test(price) || priceAmount <= 0 || priceAmount > maxPriceCents / 100) {
-        setError(`Informe o preço de ${service.name} entre R$ 0,01 e R$ 99.999,99.`);
-        return;
-      }
-      if (!Number.isInteger(duration) || duration < 1 || duration > maxDurationMinutes) {
-        setError(`A duração de ${service.name} precisa ficar entre 1 e 480 minutos.`);
-        return;
-      }
-    }
 
     const invalidHour = hours.map(hourError).find((message) => message);
     if (invalidHour) {
@@ -295,8 +320,8 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
         body: JSON.stringify({
           services: selected.map((service) => ({
             serviceId: service.id,
-            price: priceToApi(links[service.id].price),
-            durationMinutes: Number(links[service.id].duration),
+            price: Number(service.price).toFixed(2),
+            durationMinutes: service.defaultDurationMinutes,
           })),
         }),
       });
@@ -360,7 +385,7 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
         {professionalId ? "Editar profissional" : "Cadastrar profissional"}
       </h1>
       <p className="mt-1 text-sm text-[#B7B7C2]">
-        Nome, telefone e os serviços das subcategorias que a empresa atende. O preço fica neste vínculo.
+        Nome, telefone e os serviços que esta pessoa executa. Valor e duração ficam no cadastro do serviço.
       </p>
 
       {loading ? <p className="mt-6 text-sm text-[#A7A7B2]">Carregando...</p> : null}
@@ -381,9 +406,11 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
             label="Telefone"
             value={phone}
             error={fieldErrors.phone}
-            placeholder="11999999999"
+            placeholder="(11) 99999-9999"
+            inputMode="numeric"
+            maxLength={15}
             onChange={(value) => {
-              setPhone(value);
+              setPhone(formatPhone(value));
               setFieldErrors((current) => ({ ...current, phone: undefined }));
             }}
           />
@@ -409,7 +436,7 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
             placeholder="https://"
             onChange={(value) => {
               setPhotoUrl(value);
-              setFieldErrors((current) => ({ ...current, photoUrl: undefined }));
+              setFieldErrors((current) => ({ ...current, photoUrl: photoUrlMessage(value) ?? undefined }));
             }}
           />
         </section>
@@ -443,32 +470,6 @@ export function ProfessionalForm({ professionalId }: { professionalId?: string }
                             />
                             {service.name}
                           </label>
-                          {link?.selected ? (
-                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                              <label className="text-sm text-[#C8C8D0]">
-                                Preço
-                                <input
-                                  value={link.price}
-                                  inputMode="numeric"
-                                  placeholder="80,00"
-                                  maxLength={10}
-                                  onChange={(event) => updateLink(service.id, { price: formatPriceInput(event.target.value) })}
-                                  className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#141418] px-3 text-sm text-white outline-none focus:border-accent"
-                                />
-                              </label>
-                              <label className="text-sm text-[#C8C8D0]">
-                                Duração (min)
-                                <input
-                                  value={link.duration}
-                                  inputMode="numeric"
-                                  maxLength={3}
-                                  placeholder="45"
-                                  onChange={(event) => updateLink(service.id, { duration: formatDuration(event.target.value) })}
-                                  className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#141418] px-3 text-sm text-white outline-none focus:border-accent"
-                                />
-                              </label>
-                            </div>
-                          ) : null}
                         </li>
                       );
                     })}
@@ -613,12 +614,16 @@ function Field({
   error,
   onChange,
   placeholder,
+  inputMode,
+  maxLength,
 }: {
   label: string;
   value: string;
   error?: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  inputMode?: "numeric" | "text";
+  maxLength?: number;
 }) {
   return (
     <label className="mt-4 block text-sm text-[#C8C8D0] first:mt-0">
@@ -626,6 +631,8 @@ function Field({
       <input
         value={value}
         placeholder={placeholder}
+        inputMode={inputMode}
+        maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
         className={`mt-1.5 h-11 w-full rounded-xl border bg-[#101014] px-3 text-sm text-white outline-none focus:border-accent ${
           error ? "border-[#E5484D]" : "border-white/10"

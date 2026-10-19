@@ -8,6 +8,7 @@ import { ApiError, api } from "@/lib/api";
 import { getSessionSnapshot, subscribeSession } from "@/lib/session";
 
 type Named = { id: string; name: string };
+type ProfessionalOption = Named & { userId: string | null };
 type CustomerList = { data: Named[] };
 type Slot = { startsAt: string; endsAt: string; formattedTime: string };
 type ProfessionalService = { serviceId: string };
@@ -19,18 +20,44 @@ function todayKey() {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+function appointmentDateMessage(value: string) {
+  if (!value) {
+    return "Escolha a data.";
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return "Informe uma data válida.";
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  const isRealDate = date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  if (!isRealDate) {
+    return "Informe uma data válida.";
+  }
+  if (value < todayKey()) {
+    return "Escolha hoje ou uma data futura.";
+  }
+
+  return null;
+}
+
 export function AppointmentForm() {
   const router = useRouter();
   const session = useSyncExternalStore(subscribeSession, getSessionSnapshot, () => null);
   const companyId = session?.companyId ?? null;
   const [clients, setClients] = useState<Named[]>([]);
   const [services, setServices] = useState<Named[]>([]);
-  const [professionals, setProfessionals] = useState<Named[]>([]);
+  const [professionals, setProfessionals] = useState<ProfessionalOption[]>([]);
   const [offeredBy, setOfferedBy] = useState<Record<string, string[]>>({});
   const [clientId, setClientId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [professionalId, setProfessionalId] = useState("");
   const [date, setDate] = useState(todayKey);
+  const [dateError, setDateError] = useState<string | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [startsAt, setStartsAt] = useState("");
   const [notes, setNotes] = useState("");
@@ -49,7 +76,7 @@ export function AppointmentForm() {
     Promise.all([
       api<CustomerList>(`/api/companies/${companyId}/customers?limit=100`),
       api<Named[]>(`/api/companies/${companyId}/services`),
-      api<Named[]>(`/api/companies/${companyId}/professionals`),
+      api<ProfessionalOption[]>(`/api/companies/${companyId}/professionals`),
     ])
       .then(async ([customerPage, serviceRows, professionalRows]) => {
         if (!active) {
@@ -81,12 +108,16 @@ export function AppointmentForm() {
     };
   }, [companyId]);
 
-  const availableProfessionals = professionals.filter((professional) =>
-    serviceId ? (offeredBy[professional.id] ?? []).includes(serviceId) : true,
-  );
+  const availableProfessionals = professionals.filter((professional) => {
+    if (!serviceId || professional.userId) {
+      return true;
+    }
+
+    return (offeredBy[professional.id] ?? []).includes(serviceId);
+  });
 
   useEffect(() => {
-    if (!companyId || !serviceId || !professionalId || !date) {
+    if (!companyId || !serviceId || !professionalId || !date || appointmentDateMessage(date)) {
       return;
     }
 
@@ -120,6 +151,11 @@ export function AppointmentForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!companyId) {
+      return;
+    }
+    const invalidDate = appointmentDateMessage(date);
+    if (invalidDate) {
+      setDateError(invalidDate);
       return;
     }
     if (!clientId || !serviceId || !professionalId || !startsAt) {
@@ -170,10 +206,20 @@ export function AppointmentForm() {
           Data
           <input
             type="date"
+            min={todayKey()}
             value={date}
-            onChange={(event) => setDate(event.target.value)}
-            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#101014] px-3 text-sm text-white outline-none focus:border-accent"
+            onChange={(event) => {
+              const next = event.target.value;
+              setDate(next);
+              setDateError(appointmentDateMessage(next));
+              setStartsAt("");
+              setSlots([]);
+            }}
+            className={`mt-1.5 h-11 w-full rounded-xl border bg-[#101014] px-3 text-sm text-white outline-none focus:border-accent ${
+              dateError ? "border-[#E5484D]" : "border-white/10"
+            }`}
           />
+          {dateError ? <span className="mt-1.5 block text-sm text-[#ff8d90]">{dateError}</span> : null}
         </label>
 
         <fieldset className="mt-4">

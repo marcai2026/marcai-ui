@@ -161,10 +161,11 @@ export function SalonBoard({ firstName }: { firstName: string }) {
     return people;
   }, []);
   const chartMax = Math.max(...thisWeek, ...lastWeek, 1);
+  const todayActive = Math.max((today?.total ?? 0) - (today?.cancelled ?? 0), 0);
   const stats = [
     {
       label: "Agendamentos hoje",
-      value: String(today?.total ?? 0),
+      value: String(todayActive),
       hint: today?.completed ? `${today.completed} concluídos` : "Nenhum concluído ainda",
       detail: "Horários do dia",
     },
@@ -173,6 +174,12 @@ export function SalonBoard({ firstName }: { firstName: string }) {
       value: String(today?.confirmed ?? 0),
       hint: `${today?.pending ?? 0} ainda aguardam`,
       detail: "Clientes com horário marcado",
+    },
+    {
+      label: "Cancelados",
+      value: String(today?.cancelled ?? 0),
+      hint: "Desmarcados hoje",
+      detail: "Fora da conta de agendamentos",
     },
     {
       label: "Receita realizada",
@@ -203,7 +210,7 @@ export function SalonBoard({ firstName }: { firstName: string }) {
       {loading ? <p className="text-sm text-[#A7A7B2]">Carregando o painel...</p> : null}
       {error ? <p className="text-sm text-[#ff8d90]">{error}</p> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {stats.map((stat) => (
           <article key={stat.label} className="rounded-2xl border border-white/8 bg-[#141418] p-4">
             <p className="text-sm text-[#A7A7B2]">{stat.label}</p>

@@ -273,29 +273,6 @@ export function ClientForm({ customerId }: { customerId?: string }) {
           >
             {pending ? "Salvando..." : customerId ? "Salvar cliente" : "Cadastrar cliente"}
           </button>
-          {customerId ? (
-            <button
-              type="button"
-              disabled={pending}
-              className="h-11 cursor-pointer rounded-xl px-4 text-sm font-semibold text-[#C8C8D0] hover:bg-white/6 disabled:opacity-60"
-              onClick={async () => {
-                if (!companyId) {
-                  return;
-                }
-                setPending(true);
-                setError(null);
-                try {
-                  await api(`/api/companies/${companyId}/customers/${customerId}`, { method: "DELETE" });
-                  router.push("/painel/clientes");
-                } catch (caught) {
-                  setError(caught instanceof ApiError ? caught.message : "Não foi possível arquivar o cliente.");
-                  setPending(false);
-                }
-              }}
-            >
-              Arquivar
-            </button>
-          ) : null}
         </div>
       </form>
     </div>

@@ -183,7 +183,10 @@ export function CategoriesBoard() {
                     </p>
                   </div>
                   {active ? (
-                    <Link href="/painel/servicos/novo" className="text-sm font-semibold text-accent hover:underline">
+                    <Link
+                      href={`/painel/servicos/novo?subcategoria=${subcategory.id}`}
+                      className="text-sm font-semibold text-accent hover:underline"
+                    >
                       Novo serviço
                     </Link>
                   ) : null}
