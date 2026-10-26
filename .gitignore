@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next-live/
 .env
 .env.local
 npm-debug.log*
